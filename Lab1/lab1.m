@@ -1,111 +1,92 @@
-% format [x1, y1, x2, y2] for each row
+% [x1, y1, x2, y2]
 allowed = [
-    [2, 1, 2, 4];
-    [4, 1, 7, 1];
+    [2, 3, 8, 3];
+    [9, 3, 15, 3];
 ];
 forbidden = [
-    [3, 2, 3, 3];
+    [5, 4, 5, 5];
+    [12, 4, 12, 5];
 ];
 
 v0_range = [0, 15];
 alpha_range = [0, 90];
 repeat = 100000;
 g = 10;
-rng('default'); % for reproducibility
+rng('default');
 
 v0 = random_mat(repeat, v0_range);
 alpha = random_mat(repeat, alpha_range);
 
-v0_x = v0 .* cosd(alpha);
-v0_y = v0 .* sind(alpha);
+v0x = v0 .* cosd(alpha);
+v0y = v0 .* sind(alpha);
 
-allowed_ok = true(repeat, 1);
-for j = 1:size(allowed, 1)
-    % passes through all allowed lines
-    allowed_ok = allowed_ok & ...
-        is_passing_through_line(v0_x, v0_y, allowed(j, :), g);
+is_passing_through_all_allowed = true(repeat, 1);
+is_passing_through_any_forbidden = false(repeat, 1);
+for i = 1:size(allowed, 1)
+    is_passing_through_all_allowed = is_passing_through_all_allowed & ...
+        is_passing_through_line(v0x, v0y, allowed(i, :), g);
 end
-forbidden_hit = false(repeat, 1);
-for j = 1:size(forbidden, 1)
-    % but not through any forbidden lines
-    forbidden_hit = forbidden_hit | ...
-        is_passing_through_line(v0_x, v0_y, forbidden(j, :), g);
+for i = 1:size(forbidden, 1)
+    is_passing_through_any_forbidden = is_passing_through_any_forbidden | ...
+        is_passing_through_line(v0x, v0y, forbidden(i, :), g);
 end
-result = allowed_ok & ~forbidden_hit;
 
-% Chart of v0 versus alpha
+results = is_passing_through_all_allowed & ~is_passing_through_any_forbidden;
+
 figure; hold on; grid on;
-plot(alpha(result == 1), v0(result == 1), '.');
-title('v0 versus alpha'); ylabel('v0 [m/s]'); xlabel('alpha [degrees]');
+title("v0 / alpha"); xlabel("alpha"); ylabel("v0");
+plot(alpha(results == 1), v0(results == 1), '.');
+theme(gcf, "light");
 saveas(gcf, 'zad1.png');
 
-% Trajectories fulfilling the conditions
 figure; hold on; grid on;
-for region = 1:size(allowed, 1)
-    plot(allowed(region, [1, 3]), allowed(region, [2, 4]), 'g', 'LineWidth', 3);
+title("wykres 5 rzutów"); xlabel("x"); ylabel("y");
+for allowed = allowed'
+    plot(allowed([1, 3]), allowed([2, 4]), 'g', 'LineWidth', 2, 'DisplayName', 'allowed');
 end
-for region = 1:size(forbidden, 1)
-    plot(forbidden(region, [1, 3]), forbidden(region, [2, 4]), 'r', 'LineWidth', 3);
+for forbidden = forbidden'
+    plot(forbidden([1, 3]), forbidden([2, 4]), 'r', 'LineWidth', 2, 'DisplayName', 'forbidden');
 end
-idx = find(result, 5);
+idx = find(results, 5);
 for i = idx'
-    t_end = 2 * v0_y(i) / g;
-    t = linspace(0, t_end, 300);
-    plot(v0_x(i) * t, v0_y(i) * t - 0.5 * g * t.^2, 'LineWidth', 1.2);
+    t_end = 2 * v0y(i) / g;
+    t = linspace(0, t_end, 500);
+    x = v0x(i) * t;
+    y = v0y(i) * t - g / 2 * t.^2;
+    plot(x, y, 'DisplayName', sprintf("v0=%.2f, alpha=%.2f", v0(i), alpha(i)));
 end
-title('Allowed (green) and forbidden (red) regions with trajectories');
-ylabel('y'); xlabel('x');
+legend show;
+theme(gcf, "light");
 saveas(gcf, 'zad2.png');
 
-% Probability of passing for a single try
-prob = sum(result) / length(result);
-fprintf('Probability of passing for a single try: %.4f\n', prob);
-
+probability = sum(results) / repeat;
+fprintf("Probability: %.4f\n", probability);
 
 function random_mat = random_mat(size, range)
     random_mat = rand(size, 1) * (range(2) - range(1)) + range(1);
 end
 
-function is_passing = is_passing_through_line(v0_x, v0_y, line, g)
-    x1 = line(1); y1 = line(2);
-    x2 = line(3); y2 = line(4);
+function is_passing = is_passing_through_line(v0x, v0y, line, g)
+    x1 = line(1); y1 = line(2); x2 = line(3); y2 = line(4);
+    line_a = (y2 - y1)/(x2 - x1);
 
-    if x1 == x2 % vertical line
-        % calculate y at x = x1 and check if it is between y1 and y2
-        y = v0_y ./ v0_x * x1 - g ./ (2 * v0_x.^2) * x1^2;
-        is_passing = (y >= min(y1, y2)) & (y <= max(y1, y2));
+    if x1 == x2
+        y = v0y ./ v0x * x1 - g ./ (2 * v0x.^2) * x1^2;
+        is_passing = (y >= min(y1, y2) & (y <= max(y1, y2)));
         return
     end
 
-    % line: y = l_a * x + b
-    l_a = (y2 - y1) / (x2 - x1);
-    l_b = y1 - l_a * x1;
+    a = -g ./ (2 * v0x.^2);
+    b = v0y ./ v0x - line_a;
+    c = x1 * line_a - y1;
 
-    % trajectory: 
-    % x = v0_x * t
-    % y = v0_y * t - 0.5 * g * t^2
-    %
-    % t = x / v0_x
-    % y = v0_y * (x / v0_x) - 0.5 * g * (x / v0_x)^2
-    % y = (v0_y / v0_x) * x - g/(2 * v0_x^2) * x^2
-    % 
-    % y = t_a * x ^ 2 + t_b * x + t_c
-    t_a = -g ./ (2 * v0_x.^2);
-    t_b = v0_y ./ v0_x;
+    delta = b.^2 - 4 * a * c;
+    sqrt_delta = sqrt(max(delta, 0));
+    root1 = (-b + sqrt_delta) ./ (2 * a);
+    root2 = (-b - sqrt_delta) ./ (2 * a);
+    
+    min_x = min(x1, x2);
+    max_x = max(x1, x2);
 
-    % l_a * x + l_b = t_a * x ^ 2 + t_b * x
-    % 0 = t_a * x ^ 2 + (t_b - l_a) * x - l_b
-    % 0 = a * x ^ 2 + b * x + c
-    a = t_a;
-    b = t_b - l_a;
-    c = -l_b;
-    D = b.^2 - 4 * a * c;
-
-    % D < 0: no intersection
-    sqrt_D = sqrt(max(D, 0)); % if D is negative, we should use 0
-    root1 = (-b + sqrt_D) ./ (2 * a);
-    root2 = (-b - sqrt_D) ./ (2 * a);
-    x_min = min(x1, x2);
-    x_max = max(x1, x2);
-    is_passing = D >= 0 & (root1 >= x_min & root1 <= x_max) | (root2 >= x_min & root2 <= x_max);
+    is_passing = delta >= 0 & (root1 >= min_x & root1 <= max_x) | (root2 >= min_x & root2 <= max_x);
 end

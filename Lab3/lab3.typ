@@ -8,55 +8,61 @@
   Filip Dawidowski, s193433
 ]
 
+= Dane z zadania (zestaw 5)
+
+$mu = "0,01"$ kg/m, $T = 100$ N, $b = "0,5"$ N·s/m², $L = 1$ m, $M = 100$ węzłów, $N = 2000$ poziomów czasowych.
+
+Warunki początkowe:
+
+$ y(x, 0) = s(x) = x^3 - "1,5" x^2 + "0,5" x + "0,3", quad (partial y) / (partial t)(x, 0) = g(x) = x^3 - "1,5" x^2 + "0,5" x. $
+
+Warunki brzegowe (lewy koniec: Dirichlet, prawy koniec: Neumann):
+
+$ y(0, t) = l = "0,3", quad (partial y) / (partial x)(L, t) = w = "0,5". $
+
 = Wyprowadzenie wzorów
 
-*Równanie.* Drgania struny z tłumieniem opisuje równanie falowe
+*Równanie falowe z tłumieniem:*
 
-$ (partial^2 y) / (partial t^2) = v^2 (partial^2 y) / (partial x^2) - 2 beta (partial y) / (partial t), quad v = sqrt(T / mu), quad beta = b / (2 mu). $
+$ (partial^2 y) / (partial t^2) = v^2 (partial^2 y) / (partial x^2) - 2 beta (partial y) / (partial t), quad v = sqrt(T / mu) = 100 " m/s", quad beta = b / (2 mu) = 25 " 1/s". $
 
-Dane: $mu = "0,01"$ kg/m, $T = 100$ N, $b = "0,5"$ N·s/m², $L = 1$ m, $M = 100$ węzłów, $N = 2000$ poziomów czasowych, stąd $v = 100$ m/s i $beta = 25$ 1/s. Warunki początkowe i brzegowe:
-
-$
-  y(x, 0) = s(x) = -2 x^2 + "0,8" x + "0,92", quad (partial y) / (partial t)(x, 0) = g(x) = sin(2 pi x),
-$
+*Dyskretyzacja.* $y_(k, m) = y(x_m, t_k)$ (w kodzie `y[k, m]`), $x_m = (m - 1) Delta x$, $t_k = (k - 1) Delta t$, $Delta x = L / (M - 1)$. Z warunku CFL ($Delta t <= Delta x \/ v$) przyjmujemy $Delta t = Delta x \/ v approx "1,01" dot.op 10^(-4)$ s. Pochodne zastępujemy różnicami centralnymi:
 
 $
-  (partial y) / (partial x)(0, t) = h = "0,8", quad y(L, t) = r = -"0,28".
+  (y_(k+1, m) - 2 y_(k, m) + y_(k-1, m)) / (Delta t^2)
+  = v^2 (y_(k, m+1) - 2 y_(k, m) + y_(k, m-1)) / (Delta x^2)
+  - 2 beta (y_(k+1, m) - y_(k-1, m)) / (2 Delta t).
 $
 
-*Dyskretyzacja.* Siatka: $x_m = (m - 1) Delta x$, $Delta x = L / (M - 1)$, $t_k = (k - 1) Delta t$, $Delta t = (Delta x) / v$ (warunek CFL), $y_m^((k)) = y(x_m, t_k)$. Różnice centralne:
+*Węzły wewnętrzne* ($m = 2, dots, M - 1$, $k >= 2$). Wyznaczamy $y_(k+1, m)$ i oznaczamy $p = (v Delta t \/ Delta x)^2 = 1$, $q = 1 + beta Delta t$, $u = 1 - beta Delta t$:
 
-$
-  (partial^2 y) / (partial t^2) approx (y_m^((k+1)) - 2 y_m^((k)) + y_m^((k-1))) / (Delta t^2), quad
-  (partial y) / (partial t) approx (y_m^((k+1)) - y_m^((k-1))) / (2 Delta t), quad
-  (partial^2 y) / (partial x^2) approx (y_(m+1)^((k)) - 2 y_m^((k)) + y_(m-1)^((k))) / (Delta x^2).
-$
+$ y_(k+1, m) = p / q (y_(k, m+1) - 2 y_(k, m) + y_(k, m-1)) + 2 / q y_(k, m) - u / q y_(k-1, m). $
 
-Wstawiając do równania i oznaczając $p = (v Delta t / Delta x)^2$ ($= 1$), $q = 1 + beta Delta t$, $u = 1 - beta Delta t$, dla węzłów wewnętrznych ($m = 2, dots, M - 1$) i $k >= 2$:
+*Pierwszy krok.* $y_(1, m) = s_m$. Wzór ogólny dla $k = 1$ zawiera węzeł fikcyjny $y_(0, m)$, który wyznaczamy z prędkości początkowej:
 
-$ y_m^((k+1)) = p / q (y_(m+1)^((k)) - 2 y_m^((k)) + y_(m-1)^((k))) + 2 / q y_m^((k)) - u / q y_m^((k-1)). $
+$ (y_(2, m) - y_(0, m)) / (2 Delta t) = g_m quad "stąd" quad y_(0, m) = y_(2, m) - 2 Delta t g_m. $
 
-*Pierwszy krok.* Dla $k = 1$ wzór zawiera $y_m^((0))$ (węzeł fikcyjny). Z prędkości początkowej $(y_m^((2)) - y_m^((0))) / (2 Delta t) = g_m$ mamy $y_m^((0)) = y_m^((2)) - 2 Delta t g_m$. Podstawiając, z $q + u = 2$:
+Po podstawieniu (z $q + u = 2$):
 
-$ y_m^((1)) = s_m, quad y_m^((2)) = p / 2 (y_(m+1)^((1)) - 2 y_m^((1)) + y_(m-1)^((1))) + y_m^((1)) + u Delta t g_m. $
+$ y_(2, m) = p / 2 (y_(1, m+1) - 2 y_(1, m) + y_(1, m-1)) + y_(1, m) + u Delta t g_m. $
 
-*Brzeg prawy* (Dirichlet): $y_M^((k)) = r$.
+*Brzeg lewy* (Dirichlet): $y_(k, 1) = l$.
 
-*Brzeg lewy* (Neumann). Pochodną w $x = 0$ zastępujemy różnicą centralną z węzłem fikcyjnym $y_0$: $(y_2^((k)) - y_0^((k))) / (2 Delta x) = h$, czyli $y_0^((k)) = y_2^((k)) - 2 Delta x h$. Po wstawieniu do wzoru ogólnego dla $m = 1$:
+*Brzeg prawy* (Neumann; jak w wykładzie dla lewego końca, w odbiciu lustrzanym). Z węzłem fikcyjnym $y_(k, M+1)$:
 
-$ y_1^((k+1)) = (2 p) / q (y_2^((k)) - y_1^((k)) - Delta x h) + 2 / q y_1^((k)) - u / q y_1^((k-1)), quad k >= 2, $
+$ (y_(k, M+1) - y_(k, M-1)) / (2 Delta x) = w quad "stąd" quad y_(k, M+1) = y_(k, M-1) + 2 Delta x w. $
 
-a dla pierwszego kroku (jak wyżej, z $y_1^((0))$ wyeliminowanym przez $g_1$):
+Po podstawieniu do wzoru ogólnego i do wzoru na pierwszy krok dla $m = M$:
 
-$ y_1^((2)) = p (y_2^((1)) - y_1^((1)) - Delta x h) + y_1^((1)) + u Delta t g_1. $
+$ y_(k+1, M) = (2 p) / q (y_(k, M-1) - y_(k, M) + Delta x w) + 2 / q y_(k, M) - u / q y_(k-1, M), quad k >= 2, $
 
-*Bez tłumienia* ($beta = 0$) jest $q = u = 1$ i wzory przechodzą w wersję z wykładu.
+$ y_(2, M) = p (y_(1, M-1) - y_(1, M) + Delta x w) + y_(1, M) + u Delta t g_M. $
 
-*Rozwiązanie równowagowe.* W stanie ustalonym $partial^2 y / partial t^2 = 0$ i $partial y / partial t = 0$, więc $y_E'' (x) = 0$, czyli $y_E (x) = c x + d$. Z warunków brzegowych:
+*Bez tłumienia* ($beta = 0$) jest $q = u = 1$.
 
-$ y_E'(0) = c = "0,8", quad y_E (L) = "0,8" dot.op 1 + d = -"0,28" arrow d = -"1,08", quad y_E (x) = "0,8" x - "1,08". $
+*Rozwiązanie równowagowe.* W stanie ustalonym pochodne po czasie znikają, więc $(partial^2 y_E) / (partial x^2) = 0$, czyli $y_E (x) = c x + d$. Z warunków brzegowych $y_E (0) = d = "0,3"$, a nachylenie na prawym końcu to $c = w = "0,5"$:
 
-Warunek początkowy $s(x)$ jest zgodny z brzegowymi: $s'(0) = "0,8"$, $s(1) = -"0,28"$.
+$ y_E (x) = "0,5" x + "0,3". $
 
 = Wykresy
 
@@ -64,12 +70,12 @@ Warunek początkowy $s(x)$ jest zgodny z brzegowymi: $s'(0) = "0,8"$, $s(1) = -"
 
 #figure(image("string_beta_damped.png", width: 85%), caption: [Zadanie 2: $y(x, t)$ z tłumieniem ($beta = 25$).])
 
-#figure(image("equilibrium.png", width: 70%), caption: [Zadanie 3: ostatnia iteracja symulacji z tłumieniem oraz rozwiązanie równowagowe $y_E (x) = "0,8" x - "1,08"$.])
+#figure(image("equilibrium.png", width: 70%), caption: [Zadanie 3: ostatnia iteracja symulacji z tłumieniem oraz rozwiązanie równowagowe $y_E (x) = "0,5" x + "0,3"$.])
 
 = Wyniki
 
-*Zadanie 1.* Krok czasowy $Delta t = (Delta x) / v approx "1,01" dot.op 10^(-4)$ s spełnia warunek CFL ($p = 1$), więc rozwiązanie jest stabilne. Bez tłumienia struna drga okresowo, a amplituda się nie zmniejsza.
+*Zadanie 1.* Bez tłumienia struna drga okresowo, a amplituda się nie zmniejsza.
 
 *Zadanie 2.* Przy $beta = 25$ drgania szybko wygasają i po czasie $t approx "0,2"$ s struna jest prawie prosta.
 
-*Zadanie 3.* Ostatnia iteracja ($t = "0,2019"$ s) różni się od $y_E (x)$ co najwyżej o $"0,0126"$ m (dla porównania bez tłumienia różnica to $"1,93"$ m). Symulacja z tłumieniem jest więc zgodna z rozwiązaniem równowagowym; pozostała różnica wynika ze skończonego czasu symulacji (amplituda maleje jak $e^(-beta t) approx "0,007"$).
+*Zadanie 3.* Ostatnia iteracja ($t = "0,2019"$ s) różni się od $y_E (x)$ co najwyżej o $"0,0030"$ m. Symulacja z tłumieniem jest więc zgodna z rozwiązaniem równowagowym; pozostała różnica wynika ze skończonego czasu symulacji.
